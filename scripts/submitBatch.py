@@ -23,14 +23,14 @@ def lxbatchSubmitJob (run, path, cfg, outdir, queue, job_dir, dryrun):
     jobname = job_dir+'/H4Reco_'+queue+'_'+run+'.sh'
     jobtar = job_dir+'/job.tar'
     f = open (jobname, 'w')
-    f.write ('#!/bin/sh' + '\n\n')
+    #f.write ('#!/bin/sh' + '\n\n')
     f.write ('cp '+jobtar+' ./ \n')
     f.write ('tar -xf job.tar \n')
-    f.write ('source scripts/setup.sh \n')
+    f.write ('sh scripts/setup.sh \n')
     f.write ('make -j 2 \n')
     f.write ('cp '+path+'/'+cfg+' job.cfg \n\n')
     f.write ('bin/H4Reco job.cfg '+run+'\n\n')
-    f.write ('mkdir '+outdir+'\n')
+    f.write ('mkdir -p '+outdir+'\n')
     f.write ('cp ntuples/*'+run+'.root '+outdir+'\n')
     f.close ()
     getstatusoutput ('chmod 755 ' + jobname)
