@@ -4,7 +4,7 @@ HDR = ./interface/
 SRC = ./src/
 PLG = ./plugins/
 PRG = ./main/
-OBJ = ./lib/
+OBJ = ./obj/
 LIB = ./lib/
 BIN = ./bin/
 
@@ -13,6 +13,7 @@ SRCSuf = .cc
 PRGSuf = .cpp
 OBJSuf = .o
 LIBSuf = .so
+BINSuf = .exe
 
 HDRS     =  $(wildcard $(HDR)*$(HDRSuf))
 SRCS     =  $(wildcard $(SRC)*$(SRCSuf))
@@ -41,17 +42,17 @@ ROOTGLIBS     = $(shell root-config --glibs) -lGenVector -lFoam -lMinuit -lTMVA 
 
 
 CXX  =  g++
-CXXFLAGS  = -Wall -Wno-sign-compare -Wno-overloaded-virtual -O0 -g -fPIC -I$(DIR) $(ROOTCFLAGS) 
+CXXFLAGS  = -Wall -O2 -fPIC -I$(DIR) $(ROOTCFLAGS) 
 
 CPP  =  g++
-CPPFLAGS  = -Wall -Wno-sign-compare -Wno-overloaded-virtual -O0 -g -I$(DIR) $(ROOTCFLAGS)
+CPPFLAGS  = -Wall -I$(DIR) $(ROOTCFLAGS)
 
 LD       =  g++
 LDFLAGS  =  -rdynamic -shared -O2
 SONAME	 =  libH4Analysis.so
 SOFLAGS  =  -Wl,-soname,
 
-GLIBS   =  -lm -L./DynamicTTree/lib -L./CfgManager/lib -Wl,-rpath=lib/:DynamicTTree/lib/:CfgManager/lib/ -lDTT -lCFGMan $(ROOTGLIBS)
+GLIBS   =  -lm -ldl -rdynamic -L./DynamicTTree/lib -L./CfgManager/lib -lDynamicTTree -lCfgManager $(ROOTGLIBS)
 
 
 
@@ -60,13 +61,13 @@ GLIBS   =  -lm -L./DynamicTTree/lib -L./CfgManager/lib -Wl,-rpath=lib/:DynamicTT
 ifeq ($(ARCH),macosx64)
 LIBSuf  =  .dylib
 
-CPPFLAGS  =  -Wall -W -O2 -pipe -I$(HDR) $(ROOTCFLAGS)
+CPPFLAGS  =  -Wall -W -O2 -pipe -I$(DIR) $(ROOTCFLAGS)
 
-CXXFLAGS  =  -Wall -W -O2 -pipe -I$(HDR) $(ROOTCFLAGS)
+CXXFLAGS  =  -Wall -W -O2 -pipe -I$(DIR) $(ROOTCFLAGS)
 
 LDFLAGS  =  -dynamiclib -shared -single_module -undefined dynamic_lookup
 SONAME	 =  libH4Analysis.dylib
-SOFLAGS  =
+SOFLAGS  =  -Wl,-install_name,
 endif
 #################################################
 
@@ -75,7 +76,9 @@ endif
 .PHONY: all clean test
 
 
-all: dynTTree cfgMan $(LIB)$(SONAME) $(LIBS) $(BINS)
+all: dynTTree cfgMan $(LIB)$(SONAME) $(LIBS)
+
+exe: $(BINS)
 
 test:
 	@echo "HDRS = $(HDRS)"
@@ -88,30 +91,26 @@ test:
 	@echo "LIBS = $(LIBS)"
 	@echo "BINS = $(BINS)"
 
-$(BIN)%: $(PRG)%$(PRGSuf) $(HDRS) $(LIB)$(SONAME) Makefile
-	@echo " CXX $<"
-	$(CPP) $(CPPFLAGS) $(GLIBS) -L$(LIB) -lH4Analysis -o $@ $<
+$(BIN)%$(BINSuf): $(PRG)%$(PRGSuf) $(HDRS) $(LIB)$(SONAME)
+	$(CPP) $(CPPFLAGS) $(GLIBS) -L$(LIB) -lH4Analysis -lWFAnalyzer -o $@ $<
 
-$(OBJ)%$(OBJSuf): $(SRC)%$(SRCSuf) Makefile
-	@echo " CXX $<"
-	@$ $(CXX) -c $(CXXFLAGS) -o $@ $< 
+$(OBJ)%$(OBJSuf): $(SRC)%$(SRCSuf)
+	$(CXX) -c $(CXXFLAGS) -o $@ $< 
 
 $(LIB)mydict.cc: $(DICTHDRS)
 	@echo "Generating dictionary..."
-	@$ rootcling -f $(LIB)mydict.cc -c -p ${CXXFLAGS} $(DICTHDRS)
+	rootcling -f $(LIB)mydict.cc -c -p ${CXXFLAGS} $(DICTHDRS)
 
-$(LIB)mydict.o: $(LIB)mydict.cc
-	@echo " CXX $<"	
-	@$ $(CXX) -c $(CXXFLAGS) -o $@ $<
+$(LIB)mydict.o: $(LIB)mydict.cc 
+	$(CXX) -c $(CXXFLAGS) -o $@ $<
 
 $(LIB)$(SONAME): $(OBJS) $(LIB)mydict.o
 	@echo "Linking $(SONAME):"
-	@$ $(LD) $(LDFLAGS) $(OBJS) $(LIB)mydict.o -o $(LIB)$(SONAME) $(SOFLAGS)$(SONAME)
+	$(LD) $(LDFLAGS) $(OBJS) $(LIB)mydict.o -o $(LIB)$(SONAME) $(SOFLAGS)$(SONAME)
 
 $(LIB)lib%$(LIBSuf): $(PLG)%$(SRCSuf) $(PLG)%$(HDRSuf) $(OBJS)
-	@echo "Creating plugin library " $@
-	@echo " CXX $<"	
-	@$ $(LD) $(CXXFLAGS) $(LDFLAGS) -o $@ $< $(SOFLAGS)lib$*.so $(GLIBS)
+	@echo "Creating plugin library " $@ " and " $<
+	$(LD) $(CXXFLAGS) $(LDFLAGS) -o $@ $< $(SOFLAGS)lib$*.so $(GLIBS)
 
 dynTTree:
 	cd DynamicTTree && $(MAKE)
@@ -121,6 +120,6 @@ cfgMan:
 
 clean:
 	@echo "cleaning..."
-	rm -f lib/* $(OBJ)*$(OBJSuf) $(LIB)*$(LIBSuf) $(LIB)mydict* $(BIN)*$(BINSuf)
+	rm -f $(OBJ)*$(OBJSuf) $(LIB)*$(LIBSuf) $(LIB)mydict* $(BIN)*$(BINSuf)
 	cd DynamicTTree && $(MAKE) clean
 	cd CfgManager && $(MAKE) clean
