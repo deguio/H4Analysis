@@ -76,7 +76,7 @@ endif
 .PHONY: all clean test
 
 
-all: dynTTree cfgMan $(LIB)$(SONAME) $(LIBS)
+all: dynTTree cfgMan $(LIB)$(SONAME) $(LIBS) $(BINS)
 
 exe: $(BINS)
 
